@@ -52,7 +52,7 @@ zone_map <- df %>%
   ggplot(aes(fill = type)) +
     geom_sf(size = .5) +
     scale_fill_manual("Zone type",
-                      values = c("green", "blue", "yellow", "light grey")) +
+                      values = c("#ea60b9", "#4cafc5", "yellow", "light grey")) +
     labs(title = "56% of residential zoned land area is single-family detached residential",
          subtitle = "City of Pittsburgh zoning",
          caption = "@conor_tompkins, data from WPRDC") +
