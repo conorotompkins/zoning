@@ -50,7 +50,7 @@ df %>%
 
 zone_map <- df %>% 
   ggplot(aes(fill = type)) +
-    geom_sf() +
+    geom_sf(size = .5) +
     scale_fill_manual("Zone type",
                       values = c("green", "blue", "yellow", "light grey")) +
     labs(title = "56% of residential zoned land area is single-family detached residential",
