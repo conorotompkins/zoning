@@ -9,21 +9,29 @@ knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE)
 ```
 
+Yesterday, the [New York Times published an article](https://www.nytimes.com/interactive/2019/06/18/upshot/cities-across-america-question-single-family-zoning.html) about zoning in U.S. cities, particularly single-unit detached residential housing. The article did not include Pittsburgh, so I downloaded the [zone shapefile from the WPRDC](https://data.wprdc.org/dataset/zoning1) and made my own map.
+
+This blog quickly goes through the steps to make the map and other graphs about the data.
+
+First, load the required libraries and set up the environment:
 ```{r}
 library(tidyverse)
 library(sf)
 library(ggmap)
 library(janitor)
+library(hrbrthemes)
 
 options(scipen = 999)
 ```
 
+Read in the shapefile with `st_read`:
 ```{r}
 shapefile <- st_read("data/Zoning.shp")
 
 glimpse(shapefile)
 ```
 
+We need to munge the data to get it in shape for analysis. This makes some simple TRUE|FALSE flags for basic zone information and uses `case_when` to create `type`, which represents aggregated zone types.
 ```{r}
 df <- shapefile %>% 
   mutate(residential = str_detect(full_zonin, "RESIDENT"),
@@ -38,9 +46,12 @@ df <- shapefile %>%
                                         "Educational/Medical",
                                         "Other non-residential")),
          alpha_flag = type == "Single-unit detached residential")
-df
+df %>% 
+  st_drop_geometry() %>% 
+  head()
 ```
 
+This counts the number of rows per full zone description (`full_zonin`) and `type`:
 ```{r}
 df_zones <- df %>% 
   count(full_zonin, type, sort = TRUE) %>% 
@@ -48,36 +59,37 @@ df_zones <- df %>%
 df_zones
 ```
 
+Create a basic bar chart to show the distribution of `type`:
 ```{r}
 df %>% 
   st_drop_geometry() %>% 
   group_by(type, residential) %>% 
   summarize(area = sum(area)) %>% 
-  #arrange(residential, desc(area)) %>% 
   ungroup() %>% 
   mutate(type = fct_reorder(type, area)) %>% 
   ggplot(aes(type, area, fill = residential)) +
   geom_col() +
-  #facet_wrap(~residential, scale = "free_y") +
+  scale_y_comma() +
   coord_flip() +
-  theme_bw()
+  theme_ipsum()
 ```
 
+Use a bar chart to show the distribution of `full_zonin`:
 ```{r}
 df %>% 
   st_drop_geometry() %>% 
   group_by(full_zonin, residential) %>% 
   summarize(area = sum(area)) %>% 
-  #arrange(residential, desc(area)) %>% 
   ungroup() %>% 
   mutate(full_zonin = fct_reorder(full_zonin, area)) %>% 
   ggplot(aes(full_zonin, area, fill = residential)) +
   geom_col() +
-  #facet_wrap(~residential, scale = "free_y") +
+  scale_y_comma() +
   coord_flip() +
-  theme_bw()
+  theme_ipsum()
 ```
 
+This calculates the total land area zoned for any type of residential housing:
 ```{r}
 df %>% 
   st_drop_geometry() %>% 
@@ -86,6 +98,7 @@ df %>%
   summarize(total_area = sum(area))
 ```
 
+This calculates the % of residential zoning that is zoned for single-unit detached residential housing units:
 ```{r}
 df %>% 
   st_drop_geometry() %>% 
@@ -95,28 +108,14 @@ df %>%
   summarize(zone_area = sum(area)) %>% 
   mutate(pct_area = zone_area / sum(zone_area))
 ```
-  
-```{r}
-zone_map <- df %>% 
-  ggplot(aes(fill = type)) +
-    geom_sf(size = .5) +
-    scale_fill_manual("Zone type",
-                      values = c("#ea60b9", "#4cafc5", "yellow", "light grey")) +
-    labs(title = "56% of residential zoned land area is single-family detached residential",
-         subtitle = "City of Pittsburgh zoning",
-         caption = "@conor_tompkins, data from WPRDC") +
-    theme_void()
-zone_map
-```
 
-#overlay on google map
-
+This creates a map of the zones, fills them by `type`, and overlays it on a GoogleMaps basemap:
 ```{r}
-register_google(key = "your key here")
-pgh_map <- get_map(location = "The Hill, Pittsburgh, PA", zoom = 12)
+#register_google(key = "your key here")
+pgh_map <- get_map(location = "Pittsburgh, PA", zoom = 12, maptype = "roadmap", source = "google")
 
 ggmap(pgh_map) +
-  geom_sf(data = df, aes(fill = type), inherit.aes = FALSE, size = .5, alpha = .5) +
+  geom_sf(data = df %>% filter(type != "Other non-residential"), aes(fill = type), inherit.aes = FALSE, size = .5, alpha = 1, color = NA) +
   coord_sf(crs = st_crs(4326)) +
   scale_fill_manual("Zone type",
                       values = c("#ea60b9", "#4cafc5", "yellow", "light grey")) +
@@ -126,5 +125,4 @@ ggmap(pgh_map) +
   theme_void()
 ```
 
-
-  
+I use `scale_fill_manual` to manually set the color palette to match the NYTimes article.
