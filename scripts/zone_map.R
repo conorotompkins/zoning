@@ -32,16 +32,34 @@ pct_single <- df %>%
   mutate(pct_single_unit_detached_residential = round(pct_single_unit_detached_residential, digits = 3)) %>% 
   pull(pct_single_unit_detached_residential)
 
+df %>% 
+  st_drop_geometry() %>% 
+  mutate(single_unit_flag = type == "Single-unit detached residential") %>% 
+  filter(residential == TRUE) %>% 
+  summarize(total_area = sum(area))
+
+df %>% 
+  st_drop_geometry() %>% 
+  filter(residential == TRUE) %>% 
+  mutate(single_unit_flag = (type == "Single-unit detached residential")) %>% 
+  group_by(single_unit_flag) %>% 
+  summarize(zone_area = sum(area)) %>% 
+  mutate(pct_area = zone_area / sum(zone_area))
+  
+  
+
 zone_map <- df %>% 
   ggplot(aes(fill = type)) +
     geom_sf() +
     scale_fill_manual("Zone type",
                       values = c("green", "blue", "yellow", "light grey")) +
-    labs(title = "34% of residential zoned land area is single-family detached",
-         subtitle = "CIty of Pittsburgh zoning",
+    labs(title = "56% of residential zoned land area is single-family detached residential",
+         subtitle = "City of Pittsburgh zoning",
          caption = "@conor_tompkins, data from WPRDC") +
     theme_void()
 zone_map
+
+#overlay on google map
 
 ggsave("output/zone_map.png", zone_map)
 
